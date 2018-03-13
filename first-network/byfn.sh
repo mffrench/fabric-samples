@@ -35,7 +35,7 @@ export FABRIC_CFG_PATH=${PWD}
 # Print the usage message
 function printHelp () {
   echo "Usage: "
-  echo "  byfn.sh -m up|down|restart|generate [-c <channel name>] [-t <timeout>] [-d <delay>] [-f <docker-compose-file>] [-s <dbtype>]"
+  echo "  byfn.sh -m up|down|restart|generate|gen_pki|gen_chan [-c <channel name>] [-t <timeout>] [-d <delay>] [-f <docker-compose-file>] [-s <dbtype>] [-i <imagetag>]"
   echo "  byfn.sh -h|--help (print this message)"
   echo "    -m <mode> - one of 'up', 'down', 'restart' or 'generate'"
   echo "      - 'up' - bring up the network with docker-compose up"
@@ -47,12 +47,14 @@ function printHelp () {
   echo "    -d <delay> - delay duration in seconds (defaults to 3)"
   echo "    -f <docker-compose-file> - specify which docker-compose file use (defaults to docker-compose-cli.yaml)"
   echo "    -s <dbtype> - the database backend to use: goleveldb (default) or couchdb"
+  echo "    -i <imagetag> - pass the image tag to launch the network using the tag: 1.0.1, 1.0.2, 1.0.3, 1.0.4 (defaults to latest)"
   echo
   echo "Typically, one would first generate the required certificates and "
   echo "genesis block, then bring up the network. e.g.:"
   echo
   echo "	byfn.sh -m generate -c mychannel"
   echo "	byfn.sh -m up -c mychannel -s couchdb"
+  echo "	byfn.sh -m up -c mychannel -s couchdb -i 1.0.6"
   echo "	byfn.sh -m down -c mychannel"
   echo
   echo "Taking all defaults:"
@@ -111,9 +113,9 @@ function networkUp () {
     generateChannelArtifacts
   fi
   if [ "${IF_COUCHDB}" == "couchdb" ]; then
-      CHANNEL_NAME=$CHANNEL_NAME TIMEOUT=$CLI_TIMEOUT DELAY=$CLI_DELAY docker-compose -f $COMPOSE_FILE -f $COMPOSE_FILE_COUCH up -d 2>&1
+      IMAGE_TAG=$IMAGETAG CHANNEL_NAME=$CHANNEL_NAME TIMEOUT=$CLI_TIMEOUT DELAY=$CLI_DELAY docker-compose -f $COMPOSE_FILE -f $COMPOSE_FILE_COUCH up -d 2>&1
   else
-      CHANNEL_NAME=$CHANNEL_NAME TIMEOUT=$CLI_TIMEOUT DELAY=$CLI_DELAY docker-compose -f $COMPOSE_FILE up -d 2>&1
+      IMAGE_TAG=$IMAGETAG CHANNEL_NAME=$CHANNEL_NAME TIMEOUT=$CLI_TIMEOUT DELAY=$CLI_DELAY docker-compose -f $COMPOSE_FILE up -d 2>&1
   fi
   if [ $? -ne 0 ]; then
     echo "ERROR !!!! Unable to start network"
@@ -125,10 +127,11 @@ function networkUp () {
 
 # Tear down running network
 function networkDown () {
-  docker-compose -f $COMPOSE_FILE down
-  docker-compose -f $COMPOSE_FILE -f $COMPOSE_FILE_COUCH down
-  # Don't remove containers, images, etc if restarting
+  docker-compose -f $COMPOSE_FILE down --volumes
+  docker-compose -f $COMPOSE_FILE -f $COMPOSE_FILE_COUCH down --volumes
+  # Don't remove the generated artifacts -- note, the ledgers are always removed
   if [ "$MODE" != "restart" ]; then
+    # Bring the containers down deleting their volumes
     #Cleanup the chaincode containers
     clearContainers
     #Cleanup images
@@ -161,11 +164,11 @@ function replacePrivateKey () {
   CURRENT_DIR=$PWD
   cd crypto-config/peerOrganizations/org1.example.com/ca/
   PRIV_KEY=$(ls *_sk)
-  cd $CURRENT_DIR
+  cd "$CURRENT_DIR"
   sed $OPTS "s/CA1_PRIVATE_KEY/${PRIV_KEY}/g" docker-compose-e2e.yaml
   cd crypto-config/peerOrganizations/org2.example.com/ca/
   PRIV_KEY=$(ls *_sk)
-  cd $CURRENT_DIR
+  cd "$CURRENT_DIR"
   sed $OPTS "s/CA2_PRIVATE_KEY/${PRIV_KEY}/g" docker-compose-e2e.yaml
   # If MacOSX, remove the temporary backup of the docker-compose file
   if [ "$ARCH" == "Darwin" ]; then
@@ -201,7 +204,9 @@ function generateCerts (){
   echo "##########################################################"
   echo "##### Generate certificates using cryptogen tool #########"
   echo "##########################################################"
-
+  if [ -d "crypto-config" ]; then
+    rm -Rf crypto-config
+  fi
   cryptogen generate --config=./crypto-config.yaml
   if [ "$?" -ne 0 ]; then
     echo "Failed to generate certificates..."
@@ -303,8 +308,8 @@ function generateChannelArtifacts() {
 OS_ARCH=$(echo "$(uname -s|tr '[:upper:]' '[:lower:]'|sed 's/mingw64_nt.*/windows/')-$(uname -m | sed 's/x86_64/amd64/g')" | awk '{print tolower($0)}')
 # timeout duration - the duration the CLI should wait for a response from
 # another container before giving up
-CLI_TIMEOUT=10000
-#default for delay
+CLI_TIMEOUT=10
+# default for delay
 CLI_DELAY=3
 # channel name defaults to "mychannel"
 CHANNEL_NAME="mychannel"
@@ -312,9 +317,10 @@ CHANNEL_NAME="mychannel"
 COMPOSE_FILE=docker-compose-cli.yaml
 #
 COMPOSE_FILE_COUCH=docker-compose-couch.yaml
-
+# default image tag
+IMAGETAG="latest"
 # Parse commandline args
-while getopts "h?m:c:t:d:f:s:" opt; do
+while getopts "h?m:c:t:d:f:s:i:" opt; do
   case "$opt" in
     h|\?)
       printHelp
@@ -331,6 +337,8 @@ while getopts "h?m:c:t:d:f:s:" opt; do
     f)  COMPOSE_FILE=$OPTARG
     ;;
     s)  IF_COUCHDB=$OPTARG
+    ;;
+    i)  IMAGETAG=`uname -m`"-"$OPTARG
     ;;
   esac
 done
@@ -350,26 +358,31 @@ else
 fi
 
 # Announce what was requested
+if [ "${IF_COUCHDB}" == "couchdb" ]; then
+    echo
+    echo "${EXPMODE} with channel '${CHANNEL_NAME}' and CLI timeout of '${CLI_TIMEOUT}' using database '${IF_COUCHDB}'"
+else
+    echo "${EXPMODE} with channel '${CHANNEL_NAME}' and CLI timeout of '${CLI_TIMEOUT}'"
+fi
 
-  if [ "${IF_COUCHDB}" == "couchdb" ]; then
-        echo
-        echo "${EXPMODE} with channel '${CHANNEL_NAME}' and CLI timeout of '${CLI_TIMEOUT}' using database '${IF_COUCHDB}'"
-  else
-        echo "${EXPMODE} with channel '${CHANNEL_NAME}' and CLI timeout of '${CLI_TIMEOUT}'"
-  fi
 # ask for confirmation to proceed
 askProceed
 
-#Create the network using docker compose
+# create the network using docker compose
 if [ "${MODE}" == "up" ]; then
   networkUp
-  elif [ "${MODE}" == "down" ]; then ## Clear the network
+elif [ "${MODE}" == "down" ]; then ## Clear the network
   networkDown
-  elif [ "${MODE}" == "generate" ]; then ## Generate Artifacts
+elif [ "${MODE}" == "gen_pki" ]; then ## Generate PKI Artifacts
+  generateCerts
+  replacePrivateKey
+elif [ "${MODE}" == "gen_cha" ]; then ## Generate Channel Artifacts
+  generateChannelArtifacts
+elif [ "${MODE}" == "generate" ]; then ## Generate Artifacts
   generateCerts
   replacePrivateKey
   generateChannelArtifacts
-  elif [ "${MODE}" == "restart" ]; then ## Restart the network
+elif [ "${MODE}" == "restart" ]; then ## Restart the network
   networkDown
   networkUp
 else

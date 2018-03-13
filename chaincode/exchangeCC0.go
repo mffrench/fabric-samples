@@ -14,13 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package main
-
-//WARNING - this chaincode's ID is hard-coded in chaincode_example04 to illustrate one way of
-//calling chaincode from a chaincode. If this example is modified, chaincode_example04.go has
-//to be modified as well with the new ID of chaincode_example02.
-//chaincode_example05 show's how chaincode ID can be passed in as a parameter instead of
-//hard-coding.
+package chaincode
 
 import (
 	"fmt"
@@ -30,20 +24,70 @@ import (
 	pb "github.com/hyperledger/fabric/protos/peer"
 )
 
-// SimpleChaincode example simple Chaincode implementation
-type SimpleChaincode struct {
+/*
+
+exo 1 : flexible data model
+
+type Wallet struct {
+	CompanyID        string   `json:"companyID"`
+	HoldingEUR       float64  `json:"holdingEUR"`
+	HoldingDOL       float64  `json:"holdingDOL"`
 }
 
-func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
-	fmt.Println("ex02 Init")
+type Transaction struct {
+	TransactionID    string    `json:"transactionID`
+	CompanyIDSrc     string    `json:"companyIDSrc"`
+	CompanyIDDst     string    `json:"companyIDDst"`
+	HoldingType      string    `json:"holdingType"`
+	HoldingValue     float64   `json:"holdingValue"`
+}
+
+-> createWallet(CompanyName)
+
+exo 2 : several invoke definitions are possible
+
+type HoldingType struct {
+	HoldingName     string     `json:"holdingName"`
+	HoldingCode     string     `json:"holdingCode"`
+}
+
+type Wallet struct {
+	CompanyID        string              `json:"companyID"`
+	Holdings         map[string]float64  `json:"holdings"`
+}
+
+type Exchange struct {
+	ExchangeID          string    `json:"exchangeID"`
+	FirstTransactionID  string    `json:"firstTransactionID"`
+	SecondTransactionID string    `json:"secondTransactionID"`
+}
+
+-> transferFromTo(CompanyIDFrom, CompanyIDTo, Type, Value)
+-> exchangeBetween(CompanyIDA, CompanyIDB, TypeAB, ValueAB, TypeBA, ValueBA)
+
+exo 3 : parcours blocks & transac + several query
+
+.... COUCHDB + MAP/REDUCE GIVE US MONEY ....
+
+ */
+
+// ExchangePlaceChaincode example simple Chaincode implementation
+type ExchangePlaceChaincode struct {
+
+}
+
+func (t *ExchangePlaceChaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
+	fmt.Println("ExchangePlace Init")
 	_, args := stub.GetFunctionAndParameters()
-	var A, B string    // Entities
-	var Aval, Bval int // Asset holdings
+	var A, B string    // Entities => to be refactored as company - exo dev 1
+	var Aval, Bval int // Asset holdings => see struct to init forex - exo dev 1
 	var err error
 
 	if len(args) != 4 {
 		return shim.Error("Incorrect number of arguments. Expecting 4")
 	}
+
+
 
 	// Initialize the chaincode
 	A = args[0]
@@ -72,7 +116,7 @@ func (t *SimpleChaincode) Init(stub shim.ChaincodeStubInterface) pb.Response {
 	return shim.Success(nil)
 }
 
-func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
+func (t *ExchangePlaceChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 	fmt.Println("ex02 Invoke")
 	function, args := stub.GetFunctionAndParameters()
 	if function == "invoke" {
@@ -90,7 +134,7 @@ func (t *SimpleChaincode) Invoke(stub shim.ChaincodeStubInterface) pb.Response {
 }
 
 // Transaction makes payment of X units from A to B
-func (t *SimpleChaincode) invoke(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+func (t *ExchangePlaceChaincode) invoke(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	var A, B string    // Entities
 	var Aval, Bval int // Asset holdings
 	var X int          // Transaction value
@@ -104,7 +148,6 @@ func (t *SimpleChaincode) invoke(stub shim.ChaincodeStubInterface, args []string
 	B = args[1]
 
 	// Get the state from the ledger
-	// TODO: will be nice to have a GetAllState call to ledger
 	Avalbytes, err := stub.GetState(A)
 	if err != nil {
 		return shim.Error("Failed to get state")
@@ -147,7 +190,7 @@ func (t *SimpleChaincode) invoke(stub shim.ChaincodeStubInterface, args []string
 }
 
 // Deletes an entity from state
-func (t *SimpleChaincode) delete(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+func (t *ExchangePlaceChaincode) delete(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	if len(args) != 1 {
 		return shim.Error("Incorrect number of arguments. Expecting 1")
 	}
@@ -164,7 +207,7 @@ func (t *SimpleChaincode) delete(stub shim.ChaincodeStubInterface, args []string
 }
 
 // query callback representing the query of a chaincode
-func (t *SimpleChaincode) query(stub shim.ChaincodeStubInterface, args []string) pb.Response {
+func (t *ExchangePlaceChaincode) query(stub shim.ChaincodeStubInterface, args []string) pb.Response {
 	var A string // Entities
 	var err error
 
@@ -192,7 +235,7 @@ func (t *SimpleChaincode) query(stub shim.ChaincodeStubInterface, args []string)
 }
 
 func main() {
-	err := shim.Start(new(SimpleChaincode))
+	err := shim.Start(new(ExchangePlaceChaincode))
 	if err != nil {
 		fmt.Printf("Error starting Simple chaincode: %s", err)
 	}
