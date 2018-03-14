@@ -1,0 +1,83 @@
+# Copyright IBM Corp. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+version: '2'
+
+networks:
+  byfn:
+services:
+  ca0:
+    image: hyperledger/fabric-ca
+    environment:
+      - FABRIC_CA_HOME=/etc/hyperledger/fabric-ca-server
+      - FABRIC_CA_SERVER_CA_NAME=ca-bank1
+      - FABRIC_CA_SERVER_TLS_ENABLED=true
+      - FABRIC_CA_SERVER_TLS_CERTFILE=/etc/hyperledger/fabric-ca-server-config/ca.bank1.banksco.com-cert.pem
+      - FABRIC_CA_SERVER_TLS_KEYFILE=/etc/hyperledger/fabric-ca-server-config/CA1_PRIVATE_KEY
+    ports:
+      - "7054:7054"
+    command: sh -c 'fabric-ca-server start --ca.certfile /etc/hyperledger/fabric-ca-server-config/ca.bank1.banksco.com-cert.pem --ca.keyfile /etc/hyperledger/fabric-ca-server-config/CA1_PRIVATE_KEY -b admin:adminpw -d'
+    volumes:
+      - ./crypto-config/peerOrganizations/bank1.banksco.com/ca/:/etc/hyperledger/fabric-ca-server-config
+    container_name: ca_peerBank1
+    networks:
+      - byfn
+
+  ca1:
+    image: hyperledger/fabric-ca
+    environment:
+      - FABRIC_CA_HOME=/etc/hyperledger/fabric-ca-server
+      - FABRIC_CA_SERVER_CA_NAME=ca-bank2
+      - FABRIC_CA_SERVER_TLS_ENABLED=true
+      - FABRIC_CA_SERVER_TLS_CERTFILE=/etc/hyperledger/fabric-ca-server-config/ca.bank2.banksco.com-cert.pem
+      - FABRIC_CA_SERVER_TLS_KEYFILE=/etc/hyperledger/fabric-ca-server-config/CA2_PRIVATE_KEY
+    ports:
+      - "8054:7054"
+    command: sh -c 'fabric-ca-server start --ca.certfile /etc/hyperledger/fabric-ca-server-config/ca.bank2.banksco.com-cert.pem --ca.keyfile /etc/hyperledger/fabric-ca-server-config/CA2_PRIVATE_KEY -b admin:adminpw -d'
+    volumes:
+      - ./crypto-config/peerOrganizations/bank2.banksco.com/ca/:/etc/hyperledger/fabric-ca-server-config
+    container_name: ca_peerBank2
+    networks:
+      - byfn
+
+  orderer.banksco.com:
+    extends:
+      file:   base/docker-compose-base.yaml
+      service: orderer.banksco.com
+    container_name: orderer.banksco.com
+    networks:
+      - byfn
+
+  peer0.bank1.banksco.com:
+    container_name: peer0.bank1.banksco.com
+    extends:
+      file:  base/docker-compose-base.yaml
+      service: peer0.bank1.banksco.com
+    networks:
+      - byfn
+
+  peer1.bank1.banksco.com:
+    container_name: peer1.bank1.banksco.com
+    extends:
+      file:  base/docker-compose-base.yaml
+      service: peer1.bank1.banksco.com
+    networks:
+      - byfn
+
+  peer0.bank2.banksco.com:
+    container_name: peer0.bank2.banksco.com
+    extends:
+      file:  base/docker-compose-base.yaml
+      service: peer0.bank2.banksco.com
+    networks:
+      - byfn
+
+  peer1.bank2.banksco.com:
+    container_name: peer1.bank2.banksco.com
+    extends:
+      file:  base/docker-compose-base.yaml
+      service: peer1.bank2.banksco.com
+    networks:
+      - byfn

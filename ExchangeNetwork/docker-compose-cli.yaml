@@ -1,0 +1,134 @@
+# Copyright IBM Corp. All Rights Reserved.
+#
+# SPDX-License-Identifier: Apache-2.0
+#
+
+version: '2'
+
+networks:
+  byfn:
+
+services:
+
+  orderer.banksco.com:
+    hostname: orderer
+    extends:
+      file:   base/docker-compose-base.yaml
+      service: orderer.banksco.com
+    container_name: orderer.banksco.com
+    networks:
+      - byfn
+
+  peer0.bank1.banksco.com:
+    hostname: peer0Bank1
+    container_name: peer0.bank1.banksco.com
+    extends:
+      file:  base/docker-compose-base.yaml
+      service: peer0.bank1.banksco.com
+    networks:
+      - byfn
+
+  peer1.bank1.banksco.com:
+    hostname: peer1Bank1
+    container_name: peer1.bank1.banksco.com
+    extends:
+      file:  base/docker-compose-base.yaml
+      service: peer1.bank1.banksco.com
+    networks:
+      - byfn
+
+  peer0.bank2.banksco.com:
+    hostname: peer0Bank2
+    container_name: peer0.bank2.banksco.com
+    extends:
+      file:  base/docker-compose-base.yaml
+      service: peer0.bank2.banksco.com
+    networks:
+      - byfn
+
+  peer1.bank2.banksco.com:
+    hostname: peer1Bank2
+    container_name: peer1.bank2.banksco.com
+    extends:
+      file:  base/docker-compose-base.yaml
+      service: peer1.bank2.banksco.com
+    networks:
+      - byfn
+
+  cliBank1:
+    hostname: cliBank1
+    container_name: cliBank1
+    image: hyperledger/fabric-tools:x86_64-1.0.2
+    tty: true
+    environment:
+      - GOPATH=/opt/gopath
+      - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+      - CORE_LOGGING_LEVEL=DEBUG
+      - CORE_PEER_ID=cliBank1
+      - CORE_PEER_ADDRESS=peer0.bank1.banksco.com:7051
+      - CORE_PEER_LOCALMSPID=Bank1MSP
+      - CORE_PEER_TLS_ENABLED=true
+      - CORE_PEER_TLS_CERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/bank1.banksco.com/peers/peer0.bank1.banksco.com/tls/server.crt
+      - CORE_PEER_TLS_KEY_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/bank1.banksco.com/peers/peer0.bank1.banksco.com/tls/server.key
+      - CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/bank1.banksco.com/peers/peer0.bank1.banksco.com/tls/ca.crt
+      - CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/bank1.banksco.com/users/Admin@bank1.banksco.com/msp
+      - CHANNEL_NAME=bankscochannel
+      - ORDERER_TLS_CA=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/banksco.com/orderers/orderer.banksco.com/msp/tlscacerts/tlsca.banksco.com-cert.pem
+      - PEER0_BANK1_TLS_CA=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/bank1.banksco.com/peers/peer0.bank1.banksco.com/tls/ca.crt
+      - PEER0_BANK1_PRADDR=peer0.bank1.banksco.com:7051
+      - PEER1_BANK1_TLS_CA=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/bank1.banksco.com/peers/peer1.bank1.banksco.com/tls/ca.crt
+      - PEER1_BANK1_PRADDR=peer1.bank1.banksco.com:7051
+    working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+    volumes:
+        - /var/run/:/host/var/run/
+        - ./../chaincode/:/opt/gopath/src/github.com/hyperledger/fabric/examples/chaincode/go
+        - ./crypto-config:/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/
+        - ./scripts:/opt/gopath/src/github.com/hyperledger/fabric/peer/scripts/
+        - ./channel-artifacts:/opt/gopath/src/github.com/hyperledger/fabric/peer/channel-artifacts
+    depends_on:
+      - orderer.banksco.com
+      - peer0.bank1.banksco.com
+      - peer1.bank1.banksco.com
+      - peer0.bank2.banksco.com
+      - peer1.bank2.banksco.com
+    networks:
+      - byfn
+
+  cliBank2:
+    hostname: cliBank2
+    container_name: cliBank2
+    image: hyperledger/fabric-tools:x86_64-1.0.2
+    tty: true
+    environment:
+      - GOPATH=/opt/gopath
+      - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+      - CORE_LOGGING_LEVEL=DEBUG
+      - CORE_PEER_ID=cliBank2
+      - CORE_PEER_ADDRESS=peer0.bank2.banksco.com:7051
+      - CORE_PEER_LOCALMSPID=Bank2MSP
+      - CORE_PEER_TLS_ENABLED=true
+      - CORE_PEER_TLS_CERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/bank2.banksco.com/peers/peer0.bank2.banksco.com/tls/server.crt
+      - CORE_PEER_TLS_KEY_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/bank2.banksco.com/peers/peer0.bank2.banksco.com/tls/server.key
+      - CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/bank2.banksco.com/peers/peer0.bank2.banksco.com/tls/ca.crt
+      - CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/bank2.banksco.com/users/Admin@bank2.banksco.com/msp
+      - CHANNEL_NAME=bankscochannel
+      - ORDERER_TLS_CA=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/ordererOrganizations/banksco.com/orderers/orderer.banksco.com/msp/tlscacerts/tlsca.banksco.com-cert.pem
+      - PEER0_BANK2_TLS_CA=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/bank2.banksco.com/peers/peer0.bank2.banksco.com/tls/ca.crt
+      - PEER0_BANK2_PRADDR=peer0.bank2.banksco.com:7051
+      - PEER1_BANK2_TLS_CA=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/bank2.banksco.com/peers/peer1.bank2.banksco.com/tls/ca.crt
+      - PEER1_BANK2_PRADDR=peer1.bank2.banksco.com:7051
+    working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+    volumes:
+        - /var/run/:/host/var/run/
+        - ./../chaincode/:/opt/gopath/src/github.com/hyperledger/fabric/examples/chaincode/go
+        - ./crypto-config:/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/
+        - ./scripts:/opt/gopath/src/github.com/hyperledger/fabric/peer/scripts/
+        - ./channel-artifacts:/opt/gopath/src/github.com/hyperledger/fabric/peer/channel-artifacts
+    depends_on:
+      - orderer.banksco.com
+      - peer0.bank1.banksco.com
+      - peer1.bank1.banksco.com
+      - peer0.bank2.banksco.com
+      - peer1.bank2.banksco.com
+    networks:
+      - byfn
